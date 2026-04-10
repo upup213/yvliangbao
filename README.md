@@ -2,8 +2,7 @@
 
 ## 项目简介
 
-- 采用 Spring Boot 单体架构
-+ 采用 Maven 多模块工程结构（gateway 为 Controller 入口 + common 为业务逻辑层）
+-采用 Maven 多模块工程结构（gateway 为 Controller 入口 + common 为业务逻辑层）
 
 **核心功能**：
 - 🛒 盲盒商品购买与核销
@@ -17,7 +16,6 @@
 | 类别 | 技术 |
 |------|------|
 | 核心框架 | Spring Boot 2.5.15 |
-| 微服务 | Spring Cloud 2020.0.6 + Spring Cloud Alibaba 2021.1 |
 | 数据库 | MySQL 8.0.33 |
 | ORM框架 | MyBatis Plus 3.5.3.1 |
 | 连接池 | Druid 1.2.20 |
@@ -90,30 +88,6 @@
 └── pom.xml                          # Maven父POM
 ```
 
-## 核心业务模块
-
-### 用户模块 (ylb-user)
-- 微信登录/注册
-- 用户信息管理
-- 余额充值/消费
-- 订单历史
-
-### 商户模块 (ylb-merchant)
-- 商户入驻/审核
-- 门店管理
-- 商品管理（上架/下架/库存）
-- 经营数据统计
-
-### 订单模块 (ylb-order)
-- 订单创建/支付
-- 订单核销
-- 退款申请/处理
-- 超时订单自动取消
-
-### 商品模块 (ylb-product)
-- 商品列表/详情
-- 库存管理
-- 价格策略
 
 ## 环境要求
 
