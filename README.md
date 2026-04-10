@@ -32,9 +32,9 @@
 ## 系统架构
 
 ```
-## 工程结构说明
-- **ylb-gateway**：统一请求入口，包含 Controller、拦截器、过滤器
-- **ylb-common**：公共模块，包含 Entity、Mapper、Service、工具类、配置类
+-工程结构说明
+- ylb-gateway：统一请求入口，包含 Controller、拦截器、过滤器
+- ylb-common：公共模块，包含 Entity、Mapper、Service、工具类、配置类
 - 各模块通过 Maven 依赖关联，非微服务，无独立服务注册与发现
 ```
 
