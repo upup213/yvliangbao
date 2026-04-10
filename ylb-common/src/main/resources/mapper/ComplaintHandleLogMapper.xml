@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.im.ComplaintHandleLogMapper">
+
+    <!-- 处理记录列表查询 -->
+    <select id="selectByComplaintId" resultType="com.yvliangbao.common.pojo.vo.complaint.ComplaintHandleLogVO">
+        SELECT
+            chl.id,
+            chl.complaint_id,
+            chl.operator_id,
+            chl.operator_name,
+            chl.operator_type,
+            CASE chl.operator_type
+                WHEN 1 THEN '用户'
+                WHEN 2 THEN '商户'
+                WHEN 3 THEN '管理员'
+            END AS operatorTypeName,
+            chl.action,
+            chl.content,
+            chl.create_time
+        FROM complaint_handle_log chl
+        WHERE chl.complaint_id = #{complaintId}
+        ORDER BY chl.create_time DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.im.ComplaintInfoMapper">
+
+    <!-- 投诉列表查询 -->
+    <select id="selectComplaintPage" resultType="com.yvliangbao.common.pojo.vo.complaint.ComplaintVO">
+        SELECT
+            ci.id,
+            ci.complaint_no,
+            ci.order_no,
+            ci.user_id,
+            ci.user_nickname,
+            ci.user_phone,
+            ci.merchant_id,
+            ci.merchant_name,
+            ci.complaint_type,
+            CASE ci.complaint_type
+                WHEN 1 THEN '商品质量问题'
+                WHEN 2 THEN '服务态度问题'
+                WHEN 3 THEN '配送问题'
+                WHEN 4 THEN '退款问题'
+                WHEN 5 THEN '其他'
+            END AS complaintTypeName,
+            ci.complaint_content,
+            ci.contact_phone,
+            ci.image_urls,
+            ci.status,
+            CASE ci.status
+                WHEN 0 THEN '待处理'
+                WHEN 1 THEN '处理中'
+                WHEN 2 THEN '已解决'
+                WHEN 3 THEN '已关闭'
+            END AS statusName,
+            ci.handler_id,
+            ci.handler_name,
+            ci.handle_time,
+            ci.handle_result,
+            ci.user_satisfied,
+            ci.user_feedback,
+            ci.create_time,
+            ci.update_time
+        FROM complaint_info ci
+        WHERE ci.deleted = 0
+        <if test="query.complaintNo != null and query.complaintNo != ''">
+            AND ci.complaint_no LIKE CONCAT('%', #{query.complaintNo}, '%')
+        </if>
+        <if test="query.orderNo != null and query.orderNo != ''">
+            AND ci.order_no LIKE CONCAT('%', #{query.orderNo}, '%')
+        </if>
+        <if test="query.userId != null">
+            AND ci.user_id = #{query.userId}
+        </if>
+        <if test="query.merchantId != null">
+            AND ci.merchant_id = #{query.merchantId}
+        </if>
+        <if test="query.complaintType != null">
+            AND ci.complaint_type = #{query.complaintType}
+        </if>
+        <if test="query.status != null">
+            AND ci.status = #{query.status}
+        </if>
+        <if test="query.startDate != null and query.startDate != ''">
+            AND DATE(ci.create_time) &gt;= #{query.startDate}
+        </if>
+        <if test="query.endDate != null and query.endDate != ''">
+            AND DATE(ci.create_time) &lt;= #{query.endDate}
+        </if>
+        ORDER BY ci.create_time DESC
+    </select>
+
+    <!-- 投诉详情查询 -->
+    <select id="selectComplaintById" resultType="com.yuliangbao.common.pojo.vo.complaint.ComplaintVO">
+        SELECT
+            ci.id,
+            ci.complaint_no,
+            ci.order_no,
+            ci.user_id,
+            ci.user_nickname,
+            ci.user_phone,
+            ci.merchant_id,
+            ci.merchant_name,
+            ci.complaint_type,
+            CASE ci.complaint_type
+                WHEN 1 THEN '商品质量问题'
+                WHEN 2 THEN '服务态度问题'
+                WHEN 3 THEN '配送问题'
+                WHEN 4 THEN '退款问题'
+                WHEN 5 THEN '其他'
+            END AS complaintTypeName,
+            ci.complaint_content,
+            ci.contact_phone,
+            ci.image_urls,
+            ci.status,
+            CASE ci.status
+                WHEN 0 THEN '待处理'
+                WHEN 1 THEN '处理中'
+                WHEN 2 THEN '已解决'
+                WHEN 3 THEN '已关闭'
+            END AS statusName,
+            ci.handler_id,
+            ci.handler_name,
+            ci.handle_time,
+            ci.handle_result,
+            ci.user_satisfied,
+            ci.user_feedback,
+            ci.create_time,
+            ci.update_time
+        FROM complaint_info ci
+        WHERE ci.id = #{id} AND ci.deleted = 0
+    </select>
+
+</mapper>

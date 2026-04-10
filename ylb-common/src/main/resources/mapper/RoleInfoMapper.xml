@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.admin.RoleInfoMapper">
+
+    <resultMap id="BaseResultMap" type="com.yvliangbao.common.pojo.entity.admin.RoleInfo">
+        <id column="id" property="id"/>
+        <result column="role_code" property="roleCode"/>
+        <result column="role_name" property="roleName"/>
+        <result column="role_desc" property="roleDesc"/>
+        <result column="status" property="status"/>
+        <result column="is_preset" property="isPreset"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 根据管理员ID查询角色列表 -->
+    <select id="selectByAdminId" resultMap="BaseResultMap">
+        SELECT DISTINCT r.*
+        FROM role_info r
+        INNER JOIN admin_info a ON (
+            FIND_IN_SET(r.id, a.role_ids) > 0 OR r.id = a.role_id
+        )
+        WHERE a.id = #{adminId}
+        AND r.deleted = 0
+        AND r.status = 1
+        ORDER BY r.id
+    </select>
+
+    <!-- 查询角色的权限ID列表 -->
+    <select id="selectPermissionIdsByRoleId" resultType="java.lang.Long">
+        SELECT permission_id
+        FROM role_permission
+        WHERE role_id = #{roleId}
+    </select>
+
+</mapper>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.merchant.CapitalFlowMapper">
+
+    <!-- 查询商户的资金流水 -->
+    <select id="selectByMerchantId" resultType="com.yvliangbao.common.pojo.vo.settlement.CapitalFlowVO">
+        SELECT id, flow_no, merchant_id, flow_type,
+               (CASE flow_type
+                    WHEN 1 THEN '收入'
+                    WHEN 2 THEN '退款'
+                    WHEN 3 THEN '提现'
+                    WHEN 4 THEN '服务费扣减'
+                    ELSE '未知' END) AS flow_type_text,
+               amount / 100.0 AS amount,
+               before_balance / 100.0 AS before_balance,
+               after_balance / 100.0 AS after_balance,
+               related_no, remark, create_time
+        FROM capital_flow
+        WHERE merchant_id = #{merchantId}
+        <if test="flowType != null">
+            AND flow_type = #{flowType}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询商户当前余额（累计收入-累计退款-累计提现-累计服务费） -->
+    <select id="selectCurrentBalance" resultType="java.lang.Long">
+        SELECT COALESCE(
+            (SELECT SUM(CASE
+                WHEN flow_type = 1 THEN amount
+                WHEN flow_type IN (2, 3, 4) THEN -amount
+                ELSE 0 END)
+             FROM capital_flow
+             WHERE merchant_id = #{merchantId}), 0)
+    </select>
+
+</mapper>

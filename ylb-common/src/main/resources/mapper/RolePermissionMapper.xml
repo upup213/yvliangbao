@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.admin.RolePermissionMapper">
+
+    <!-- 删除角色的所有权限 -->
+    <delete id="deleteByRoleId">
+        DELETE FROM role_permission
+        WHERE role_id = #{roleId}
+    </delete>
+
+    <!-- 批量插入角色权限 -->
+    <insert id="batchInsert">
+        INSERT INTO role_permission (role_id, permission_id, create_time)
+        VALUES
+        <foreach collection="permissionIds" item="permId" separator=",">
+            (#{roleId}, #{permId}, NOW())
+        </foreach>
+    </insert>
+
+</mapper>

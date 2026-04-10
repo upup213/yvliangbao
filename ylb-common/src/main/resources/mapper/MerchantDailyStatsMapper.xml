@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.merchant.MerchantDailyStatsMapper">
+
+    <!-- 批量插入或更新统计数据 -->
+    <insert id="batchInsertOrUpdate" parameterType="java.util.List">
+        INSERT INTO merchant_daily_stats (merchant_id, stat_date, revenue, order_count, refund_amount, verified_count, verified_amount)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.merchantId}, #{item.statDate}, #{item.revenue}, #{item.orderCount}, #{item.refundAmount}, #{item.verifiedCount}, #{item.verifiedAmount})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            revenue = VALUES(revenue),
+            order_count = VALUES(order_count),
+            refund_amount = VALUES(refund_amount),
+            verified_count = VALUES(verified_count),
+            verified_amount = VALUES(verified_amount)
+    </insert>
+
+</mapper>

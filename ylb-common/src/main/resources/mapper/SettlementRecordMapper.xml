@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.merchant.SettlementRecordMapper">
+
+    <!-- 查询商户的结算记录 -->
+    <select id="selectByMerchantId" resultType="com.yvliangbao.common.pojo.entity.merchant.SettlementRecord">
+        SELECT id, settlement_no, merchant_id, period_start, period_end,
+               total_amount, service_fee, settle_amount, order_count, refund_amount,
+               status, settle_time, bank_name, bank_account, remark,
+               create_time, update_time
+        FROM settlement_record
+        WHERE merchant_id = #{merchantId}
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询商户待结算金额 -->
+    <select id="selectPendingSettleAmount" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(settle_amount), 0)
+        FROM settlement_record
+        WHERE merchant_id = #{merchantId} AND status = 0
+    </select>
+
+</mapper>

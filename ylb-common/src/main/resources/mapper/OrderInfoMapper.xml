@@ -1,0 +1,564 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yvliangbao.common.mapper.order.OrderInfoMapper">
+
+    <resultMap id="BaseResultMap" type="com.yvliangbao.common.pojo.entity.order.OrderInfo">
+        <id column="id" property="id"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="user_id" property="userId"/>
+        <result column="merchant_id" property="merchantId"/>
+        <result column="store_id" property="storeId"/>
+        <result column="product_id" property="productId"/>
+        <result column="product_name" property="productName"/>
+        <result column="product_image" property="productImage"/>
+        <result column="original_price" property="originalPrice"/>
+        <result column="sale_price" property="salePrice"/>
+        <result column="quantity" property="quantity"/>
+        <result column="pay_amount" property="payAmount"/>
+        <result column="order_status" property="orderStatus"/>
+        <result column="pay_status" property="payStatus"/>
+        <result column="pay_time" property="payTime"/>
+        <result column="pickup_code" property="pickupCode"/>
+        <result column="ready_time" property="readyTime"/>
+        <result column="finish_time" property="finishTime"/>
+        <result column="cancel_time" property="cancelTime"/>
+        <result column="cancel_reason" property="cancelReason"/>
+        <result column="refund_time" property="refundTime"/>
+        <result column="refund_reason" property="refundReason"/>
+        <result column="refund_apply_time" property="refundApplyTime"/>
+        <result column="expire_time" property="expireTime"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <resultMap id="OrderAdminVOResultMap" type="com.yvliangbao.common.pojo.vo.order.OrderAdminVO">
+        <id column="id" property="id"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="user_id" property="userId"/>
+        <result column="merchant_id" property="merchantId"/>
+        <result column="store_id" property="storeId"/>
+        <result column="product_id" property="productId"/>
+        <result column="product_name" property="productName"/>
+        <result column="product_images" property="productImage"/>
+        <result column="original_price" property="originalPrice"/>
+        <result column="sale_price" property="productPrice"/>
+        <result column="total_amount" property="totalAmount"/>
+        <result column="pay_amount" property="payAmount"/>
+        <result column="balance_amount" property="refundAmount"/>
+        <result column="quantity" property="quantity"/>
+        <result column="order_status" property="status"/>
+        <result column="pay_time" property="payTime"/>
+        <result column="pickup_code" property="pickupCode"/>
+        <result column="finish_time" property="finishTime"/>
+        <result column="cancel_reason" property="cancelReason"/>
+        <result column="refund_reason" property="refundReason"/>
+        <result column="refund_apply_time" property="refundApplyTime"/>
+        <result column="create_time" property="createTime"/>
+        <!-- 关联字段 -->
+        <result column="user_nickname" property="userNickname"/>
+        <result column="user_phone" property="userPhone"/>
+        <result column="user_avatar" property="userAvatar"/>
+        <result column="merchant_name" property="merchantName"/>
+        <result column="merchant_phone" property="merchantPhone"/>
+        <result column="store_name" property="storeName"/>
+        <result column="store_address" property="storeAddress"/>
+    </resultMap>
+
+    <!-- 原子更新订单状态 -->
+    <update id="updateStatus">
+        UPDATE order_info
+        SET order_status = #{newStatus},
+            pay_status = 1,
+            pay_time = #{payTime},
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND user_id = #{userId}
+          AND order_status = #{oldStatus}
+          AND deleted = 0
+    </update>
+
+    <!-- 原子更新订单状态（核销） -->
+    <update id="updateStatusByPickupCode">
+        UPDATE order_info
+        SET order_status = #{newStatus},
+            finish_time = #{finishTime},
+            update_time = NOW()
+        WHERE pickup_code = #{pickupCode}
+          AND merchant_id = #{merchantId}
+          AND order_status IN (1, 2)
+          AND deleted = 0
+    </update>
+
+    <!-- 原子更新订单状态为待取餐（备餐完成） -->
+    <update id="updateStatusToReady">
+        UPDATE order_info
+        SET order_status = #{newStatus},
+            ready_time = #{readyTime},
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND merchant_id = #{merchantId}
+          AND order_status = #{oldStatus}
+          AND deleted = 0
+    </update>
+
+    <!-- 原子更新订单状态为已退款（商户同意退款） -->
+    <update id="updateStatusToRefunded">
+        UPDATE order_info
+        SET order_status = #{newStatus},
+            pay_status = 3,
+            refund_time = #{refundTime},
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND merchant_id = #{merchantId}
+          AND order_status = 6
+          AND deleted = 0
+    </update>
+
+    <!-- 原子更新订单状态为退款中（用户申请退款） -->
+    <update id="updateStatusToRefunding">
+        UPDATE order_info
+        SET order_status = 6,
+            refund_reason = #{refundReason},
+            refund_apply_time = #{refundApplyTime},
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND user_id = #{userId}
+          AND order_status IN (1, 2)
+          AND deleted = 0
+    </update>
+
+    <!-- 查询超时未处理的退款申请 -->
+    <select id="selectTimeoutRefundingOrders" resultMap="BaseResultMap">
+        SELECT * FROM order_info
+        WHERE order_status = 6
+          AND refund_apply_time IS NOT NULL
+          AND refund_apply_time &lt; DATE_SUB(NOW(), INTERVAL #{timeoutHours} HOUR)
+          AND deleted = 0
+    </select>
+
+    <!-- 系统自动退款（超时自动批准） -->
+    <update id="autoRefund">
+        UPDATE order_info
+        SET order_status = #{newStatus},
+            pay_status = 3,
+            refund_time = #{refundTime},
+            refund_reason = CONCAT(IFNULL(refund_reason, ''), '（系统自动退款：商户超时未处理）'),
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND order_status = 6
+          AND deleted = 0
+    </update>
+
+    <!-- 原子更新订单状态恢复（商户拒绝退款） -->
+    <update id="updateStatusRejectRefund">
+        UPDATE order_info
+        SET order_status = #{newStatus},
+            refund_reason = NULL,
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND merchant_id = #{merchantId}
+          AND order_status = 6
+          AND deleted = 0
+    </update>
+
+    <!-- 查询商户今日已核销订单 -->
+    <select id="selectTodayVerifiedOrders" resultMap="BaseResultMap">
+        SELECT * FROM order_info
+        WHERE store_id IN
+        <foreach item="id" collection="storeIds" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND order_status = 3
+        AND finish_time IS NOT NULL
+        AND DATE(finish_time) = CURDATE()
+        AND deleted = 0
+        ORDER BY finish_time DESC
+        LIMIT 100
+    </select>
+
+    <!-- 查询超时未支付订单（排除正在支付的订单） -->
+    <!-- ⚠️ status IN (-1, 0): 排除创建中和待支付状态，防止并发取消 -->
+    <select id="selectTimeoutOrders" resultMap="BaseResultMap">
+        SELECT * FROM order_info
+        WHERE order_status = 0
+          AND expire_time &lt; #{expireTime}
+          AND deleted = 0
+          AND order_no NOT IN (
+              SELECT DISTINCT order_no FROM payment_record
+              WHERE status IN (-1, 0)  -- -1:创建中, 0:待支付
+                AND deleted = 0
+          )
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 原子取消超时订单（增加支付记录检查，防止并发支付） -->
+    <!-- ⚠️ status IN (-1, 0): 检查创建中和待支付状态，防止并发取消 -->
+    <update id="cancelTimeoutOrder">
+        UPDATE order_info
+        SET order_status = 4,
+            cancel_reason = #{cancelReason},
+            cancel_time = #{cancelTime},
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND order_status = 0
+          AND deleted = 0
+          AND NOT EXISTS (
+              SELECT 1 FROM payment_record
+              WHERE order_no = #{orderNo}
+                AND status IN (-1, 0)  -- -1:创建中, 0:待支付
+                AND deleted = 0
+          )
+    </update>
+
+    <!-- 统计用户已完成订单数 -->
+    <select id="countCompletedOrders" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE user_id = #{userId}
+          AND order_status = 3
+          AND deleted = 0
+    </select>
+
+    <!-- 计算用户节省金额 -->
+    <select id="sumSavedAmount" resultType="java.lang.Long">
+        SELECT COALESCE(SUM((original_price - sale_price) * quantity), 0)
+        FROM order_info
+        WHERE user_id = #{userId}
+          AND order_status = 3
+          AND deleted = 0
+    </select>
+
+    <!-- 统计用户各状态订单数量 -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE user_id = #{userId}
+          AND order_status = #{orderStatus}
+          AND deleted = 0
+    </select>
+
+    <!-- 统计用户待取货订单数 -->
+    <select id="countWaitingOrders" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE user_id = #{userId}
+          AND order_status IN (1, 2)
+          AND deleted = 0
+    </select>
+
+    <!-- 计算用户累计消费金额 -->
+    <select id="sumTotalSpent" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0)
+        FROM order_info
+        WHERE user_id = #{userId}
+          AND order_status = 3
+          AND deleted = 0
+    </select>
+
+    <!-- 计算用户本月消费金额 -->
+    <select id="sumMonthSpent" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0)
+        FROM order_info
+        WHERE user_id = #{userId}
+          AND order_status = 3
+          AND YEAR(finish_time) = YEAR(CURDATE())
+          AND MONTH(finish_time) = MONTH(CURDATE())
+          AND deleted = 0
+    </select>
+
+    <!-- 计算用户本月节省金额 -->
+    <select id="sumMonthSaved" resultType="java.lang.Long">
+        SELECT COALESCE(SUM((original_price - sale_price) * quantity), 0)
+        FROM order_info
+        WHERE user_id = #{userId}
+          AND order_status = 3
+          AND YEAR(finish_time) = YEAR(CURDATE())
+          AND MONTH(finish_time) = MONTH(CURDATE())
+          AND deleted = 0
+    </select>
+
+    <!-- ========== 商户统计相关 ========== -->
+
+    <!-- 统计商户今日订单数 -->
+    <select id="countMerchantTodayOrders" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND DATE(create_time) = CURDATE()
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户今日营收 -->
+    <select id="sumMerchantTodayRevenue" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3
+          AND DATE(finish_time) = CURDATE()
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户今日核销数 -->
+    <select id="countMerchantTodayVerified" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3
+          AND DATE(finish_time) = CURDATE()
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户今日退款金额 -->
+    <select id="sumMerchantTodayRefund" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 5
+          AND DATE(refund_time) = CURDATE()
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户累计订单数 -->
+    <select id="countMerchantTotalOrders" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户累计营收（只统计已核销订单） -->
+    <select id="sumMerchantTotalRevenue" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3  -- 已核销/已完成
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户累计退款金额 -->
+    <select id="sumMerchantTotalRefund" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 5
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户累计节省金额 -->
+    <select id="sumMerchantTotalSaved" resultType="java.lang.Long">
+        SELECT COALESCE(SUM((original_price - sale_price) * quantity), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户待核销订单数 -->
+    <select id="countMerchantPendingVerify" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status IN (1, 2)
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户退款中订单数 -->
+    <select id="countMerchantRefunding" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 6
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户指定日期范围的营收 -->
+    <select id="sumMerchantRevenueByRange" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND pay_status = 1
+          AND DATE(pay_time) BETWEEN #{startDate} AND #{endDate}
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户指定日期范围的订单数 -->
+    <select id="countMerchantOrdersByRange" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND pay_status = 1
+          AND DATE(pay_time) BETWEEN #{startDate} AND #{endDate}
+          AND deleted = 0
+    </select>
+
+    <!-- ========== 昨日统计 ========== -->
+
+    <!-- 统计商户昨日订单数 -->
+    <select id="countMerchantYesterdayOrders" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND DATE(create_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户昨日营收（只统计已核销订单） -->
+    <select id="sumMerchantYesterdayRevenue" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3
+          AND DATE(finish_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户昨日核销数 -->
+    <select id="countMerchantYesterdayVerified" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3
+          AND DATE(finish_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+          AND deleted = 0
+    </select>
+
+    <!-- ========== 本月统计 ========== -->
+
+    <!-- 统计商户本月订单数 -->
+    <select id="countMerchantMonthOrders" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND YEAR(create_time) = YEAR(CURDATE())
+          AND MONTH(create_time) = MONTH(CURDATE())
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户本月营收（只统计已核销订单） -->
+    <select id="sumMerchantMonthRevenue" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3
+          AND YEAR(finish_time) = YEAR(CURDATE())
+          AND MONTH(finish_time) = MONTH(CURDATE())
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户本月核销数 -->
+    <select id="countMerchantMonthVerified" resultType="int">
+        SELECT COUNT(*) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 3
+          AND YEAR(finish_time) = YEAR(CURDATE())
+          AND MONTH(finish_time) = MONTH(CURDATE())
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户本月退款金额 -->
+    <select id="sumMerchantMonthRefund" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 5
+          AND YEAR(refund_time) = YEAR(CURDATE())
+          AND MONTH(refund_time) = MONTH(CURDATE())
+          AND deleted = 0
+    </select>
+
+    <!-- 统计商户指定日期的退款金额 -->
+    <select id="sumMerchantRefundByRange" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE merchant_id = #{merchantId}
+          AND order_status = 5
+          AND DATE(refund_time) BETWEEN #{startDate} AND #{endDate}
+          AND deleted = 0
+    </select>
+
+    <!-- ========== 平台统计相关 ========== -->
+
+    <!-- 统计所有已支付订单的总实付金额 -->
+    <select id="selectSumPayAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(pay_amount), 0) FROM order_info
+        WHERE pay_status = 1
+          AND deleted = 0
+    </select>
+
+    <!-- 统计活跃用户数 -->
+    <select id="selectActiveUserCount" resultType="long">
+        SELECT COUNT(DISTINCT user_id) FROM order_info
+        WHERE create_time >= #{since}
+          AND deleted = 0
+    </select>
+
+    <!-- 统计活跃商户数 -->
+    <select id="selectActiveMerchantCount" resultType="long">
+        SELECT COUNT(DISTINCT merchant_id) FROM order_info
+        WHERE create_time >= #{since}
+          AND deleted = 0
+    </select>
+
+    <!-- ========== 平台端订单管理 ========== -->
+
+    <!-- 查询平台端订单列表 -->
+    <select id="selectAdminOrderList" resultMap="OrderAdminVOResultMap">
+        SELECT o.*,
+               u.nickname AS user_nickname,
+               u.phone AS user_phone,
+               u.avatar AS user_avatar,
+               m.merchant_name,
+               m.contact_phone AS merchant_phone,
+               s.store_name,
+               s.detail_address AS store_address
+        FROM order_info o
+        LEFT JOIN user_info u ON o.user_id = u.id
+        LEFT JOIN merchant_info m ON o.merchant_id = m.id
+        LEFT JOIN store_info s ON o.store_id = s.id
+        WHERE o.deleted = 0
+        <if test="orderNo != null and orderNo != ''">
+            AND o.order_no LIKE CONCAT('%', #{orderNo}, '%')
+        </if>
+        <if test="phone != null and phone != ''">
+            AND (u.phone LIKE CONCAT('%', #{phone}, '%') OR m.contact_phone LIKE CONCAT('%', #{phone}, '%'))
+        </if>
+        <if test="merchantId != null">
+            AND o.merchant_id = #{merchantId}
+        </if>
+        <if test="status != null">
+            AND o.order_status = #{status}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND DATE(o.create_time) >= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND DATE(o.create_time) &lt;= #{endDate}
+        </if>
+        ORDER BY o.create_time DESC
+    </select>
+
+    <!-- 查询平台端订单详情 -->
+    <select id="selectAdminOrderDetail" resultMap="OrderAdminVOResultMap">
+        SELECT o.*,
+               u.nickname AS user_nickname,
+               u.phone AS user_phone,
+               u.avatar AS user_avatar,
+               m.merchant_name,
+               m.contact_phone AS merchant_phone,
+               s.store_name,
+               s.detail_address AS store_address
+        FROM order_info o
+        LEFT JOIN user_info u ON o.user_id = u.id
+        LEFT JOIN merchant_info m ON o.merchant_id = m.id
+        LEFT JOIN store_info s ON o.store_id = s.id
+        WHERE o.order_no = #{orderNo}
+          AND o.deleted = 0
+    </select>
+
+    <!-- 管理员强制退款 -->
+    <update id="adminForceRefund">
+        UPDATE order_info
+        SET order_status = 7,
+            pay_status = 3,
+            refund_time = NOW(),
+            refund_reason = CONCAT(IFNULL(refund_reason, ''), '（平台强制退款：', #{reason}, '）'),
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND order_status IN (2, 3, 6)
+          AND deleted = 0
+    </update>
+
+    <!-- 管理员强制取消 -->
+    <update id="adminForceCancel">
+        UPDATE order_info
+        SET order_status = 5,
+            cancel_time = NOW(),
+            cancel_reason = CONCAT('平台强制取消：', #{reason}),
+            update_time = NOW()
+        WHERE order_no = #{orderNo}
+          AND order_status = 1
+          AND deleted = 0
+    </update>
+
+</mapper>
